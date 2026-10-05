@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>교실 태블릿 알리미 - 과학도우미 & 선생님</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              yellow: '#F59E0B',
+              bgYellow: '#FBBF24',
+              pageBg: '#FFFDF5',
+              borderYellow: '#FCD34D'
+            }
+          },
+          fontFamily: {
+            sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 대형 팝업 강조 펄스 애니메이션 */
+    @keyframes modal-pulse {
+      0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+      70% { box-shadow: 0 0 0 20px rgba(245, 158, 11, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    }
+    .alarm-ring {
+      animation: modal-pulse 1.6s infinite;
+    }
+    /* 스크롤바 미려하게 처리 */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f8fafc;
+      border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-amber-400 min-h-screen text-slate-800 flex flex-col font-sans select-none overflow-x-hidden">
+
+  <!-- 상단 글로벌 헤더 바 (이미지 디자인 100% 일치) -->
+  <header class="bg-amber-400 px-4 md:px-8 py-3.5 border-b border-amber-500/25 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="bg-white p-2.5 rounded-2xl shadow-sm text-amber-500 flex items-center justify-center">
+        <i class="fa-solid fa-chalkboard-user text-2xl"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl md:text-2xl font-black tracking-tight text-slate-900">교실 태블릿 알리미</h1>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-white text-emerald-600 shadow-sm border border-emerald-200">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            실시간 동기화됨
+          </span>
+        </div>
+        <p class="text-xs text-amber-950 font-medium">선생님과 교실 간의 양방향 실시간 알림망</p>
+      </div>
+    </div>
+
+    <!-- 우측 상단 유틸리티 메뉴 -->
+    <div class="flex items-center flex-wrap gap-2 text-xs font-bold">
+      <!-- 오디오 초기 활성화 / 상태 표시 버튼 -->
+      <button id="audioInitBtn" onclick="initAndUnlockAudio()" class="flex items-center gap-1.5 bg-amber-900/80 hover:bg-amber-900 text-white px-3 py-2 rounded-xl transition shadow-sm">
+        <i class="fa-solid fa-power-off text-amber-300"></i>
+        <span id="audioInitText">자동 켜짐 설정됨</span>
+      </button>
+
+      <!-- 전체화면 토글 -->
+      <button onclick="toggleFullScreen()" class="flex items-center gap-1.5 bg-amber-500/90 hover:bg-amber-600 text-white px-3 py-2 rounded-xl transition shadow-sm">
+        <i class="fa-solid fa-expand"></i>
+        <span>전체화면</span>
+      </button>
+
+      <!-- 알림음 200% 증폭 토글 -->
+      <button id="volumeToggleBtn" onclick="toggleVolumeBoost()" class="flex items-center gap-1.5 bg-amber-500/90 hover:bg-amber-600 text-white px-3 py-2 rounded-xl transition shadow-sm">
+        <i class="fa-solid fa-volume-high"></i>
+        <span id="volumeToggleText">200% 증폭</span>
+      </button>
+
+      <!-- 학생 태블릿 모드 vs 선생님 전송 모드 스위처 -->
+      <div class="bg-amber-600/30 p-1 rounded-2xl flex gap-1 border border-amber-600/20">
+        <button id="tabNavStudent" onclick="switchView('student')" class="px-3.5 py-1.5 rounded-xl text-slate-800 hover:text-white font-extrabold transition flex items-center gap-1.5">
+          <i class="fa-solid fa-tablet-screen-button"></i> 학생 태블릿 모드
+        </button>
+        <button id="tabNavTeacher" onclick="switchView('teacher')" class="px-3.5 py-1.5 rounded-xl bg-white text-slate-900 font-extrabold shadow transition flex items-center gap-1.5">
+          <i class="fa-solid fa-paper-plane text-amber-500"></i> 선생님 전송 모드
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 뷰 컨테이너 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 flex flex-col">
+
+    <!-- ================================================================= -->
+    <!-- [VIEW 1] 선생님 전송 및 실시간 모니터링 화면 (이미지 레이아웃 구현) -->
+    <!-- ================================================================= -->
+    <section id="teacherView" class="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- 좌측 패널: 새 메시지 전송 카드 (lg:col-span-5) -->
+      <div class="lg:col-span-5 bg-white rounded-3xl p-5 md:p-7 shadow-xl border border-amber-200/80 flex flex-col gap-4">
+        
+        <div class="flex items-center gap-2 pb-1 border-b border-slate-100">
+          <span class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm font-black shadow-sm">
+            <i class="fa-solid fa-paper-plane"></i>
+          </span>
+          <h2 class="text-xl font-black text-slate-900">새 메시지 전송</h2>
+        </div>
+
+        <!-- 빠른 템플릿 클릭 버튼 그룹 -->
+        <div>
+          <label class="block text-xs font-bold text-slate-500 mb-2 flex items-center gap-1">
+            <i class="fa-solid fa-bolt text-amber-500"></i> 빠른 템플릿 클릭
+          </label>
+          <div class="flex flex-wrap gap-1.5">
+            <button type="button" onclick="applyTemplate('scienceLab')" class="text-xs bg-amber-50 hover:bg-amber-100 text-slate-800 font-bold px-3 py-1.5 rounded-xl border border-amber-200 transition">
+              🏃 과학실 이동
+            </button>
+            <button type="button" onclick="applyTemplate('supplies')" class="text-xs bg-amber-50 hover:bg-amber-100 text-slate-800 font-bold px-3 py-1.5 rounded-xl border border-amber-200 transition">
+              🧪 준비물 수령
+            </button>
+            <button type="button" onclick="applyTemplate('blackboard')" class="text-xs bg-amber-50 hover:bg-amber-100 text-slate-800 font-bold px-3 py-1.5 rounded-xl border border-amber-200 transition">
+              🖍️ 칠판 기록
+            </button>
+            <button type="button" onclick="applyTemplate('quiet')" class="text-xs bg-amber-50 hover:bg-amber-100 text-slate-800 font-bold px-3 py-1.5 rounded-xl border border-amber-200 transition">
+              🤫 조용히 자습
+            </button>
+          </div>
+        </div>
+
+        <form id="teacherSendForm" onsubmit="handleTeacherSubmit(event)" class="flex flex-col gap-4">
+          <!-- 중요도 / 유형 선택 버튼 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-2">중요도 / 유형</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button type="button" id="typeBtn-general" onclick="selectNoticeType('일반 알림')" class="py-2.5 px-3 rounded-2xl border-2 font-black text-xs md:text-sm flex items-center justify-center gap-1.5 transition border-amber-500 bg-amber-50 text-slate-900 shadow-sm">
+                <i class="fa-solid fa-bars-staggered text-amber-500"></i> 일반 알림
+              </button>
+              <button type="button" id="typeBtn-urgent" onclick="selectNoticeType('긴급 사항')" class="py-2.5 px-3 rounded-2xl border-2 font-black text-xs md:text-sm flex items-center justify-center gap-1.5 transition border-slate-200 text-slate-500 hover:border-slate-300">
+                <i class="fa-solid fa-bell text-rose-500"></i> 긴급 사항
+              </button>
+              <button type="button" id="typeBtn-supplies" onclick="selectNoticeType('준비물')" class="py-2.5 px-3 rounded-2xl border-2 font-black text-xs md:text-sm flex items-center justify-center gap-1.5 transition border-slate-200 text-slate-500 hover:border-slate-300">
+                <i class="fa-solid fa-pencil text-amber-600"></i> 준비물
+              </button>
+            </div>
+          </div>
+
+          <!-- 대상 반 선택 (6반, 8반, 10반 체크박스) -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-2">전송 대상 반 (복수 선택 가능)</label>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="flex items-center justify-center gap-2 p-2.5 rounded-2xl border-2 border-slate-200 cursor-pointer hover:border-amber-400 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 transition">
+                <input type="checkbox" name="targetClasses" value="6" checked class="w-4 h-4 accent-amber-500">
+                <span class="font-extrabold text-sm text-slate-800">🧪 6반</span>
+              </label>
+              <label class="flex items-center justify-center gap-2 p-2.5 rounded-2xl border-2 border-slate-200 cursor-pointer hover:border-amber-400 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 transition">
+                <input type="checkbox" name="targetClasses" value="8" checked class="w-4 h-4 accent-amber-500">
+                <span class="font-extrabold text-sm text-slate-800">🔬 8반</span>
+              </label>
+              <label class="flex items-center justify-center gap-2 p-2.5 rounded-2xl border-2 border-slate-200 cursor-pointer hover:border-amber-400 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 transition">
+                <input type="checkbox" name="targetClasses" value="10" checked class="w-4 h-4 accent-amber-500">
+                <span class="font-extrabold text-sm text-slate-800">🪐 10반</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 제목 / 도우미 이름 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-1">제목 (또는 학생 이름)</label>
+            <input type="text" id="inputNoticeTitle" required placeholder="예: 호연 또는 3교시 과학실 이동 알림" value="호연"
+                   class="w-full px-4 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold text-slate-800">
+          </div>
+
+          <!-- 상세 전달 내용 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-500 mb-1">상세 전달 내용</label>
+            <textarea id="inputNoticeContent" rows="4" required placeholder="학생들에게 전달할 구체적인 행동이나 안내사항을 입력하세요..."
+                      class="w-full p-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold text-slate-800 resize-none leading-relaxed text-sm">금요일 결석생 칠판에 적어주시고 해당 학생들에게 종례 때 핸드폰 미리 켜서 선생님께 보여주고 가야한다고 전해주세요. 칠판에는 '금요일 결석생 선호도 조사 실시' 이것만 적어주세요</textarea>
+          </div>
+
+          <!-- 대형 전송 버튼 -->
+          <button type="submit" class="w-full py-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-lg rounded-2xl shadow-lg transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            교실 태블릿으로 전송하기
+          </button>
+        </form>
+
+        <p class="text-center text-xs text-slate-400 font-medium">전송 즉시 태블릿에서 차임벨이 울리고 학생이 확인할 때까지 지속됩니다.</p>
+      </div>
+
+      <!-- 우측 패널: 전송 내역 및 실시간 수신현황 (lg:col-span-7) -->
+      <div class="lg:col-span-7 bg-white rounded-3xl p-5 md:p-7 shadow-xl border border-amber-200/80 flex flex-col min-h-[580px]">
+        <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-black">
+              <i class="fa-solid fa-list-ul"></i>
+            </span>
+            <h2 class="text-xl font-black text-slate-900">전송 내역 및 실시간 수신현황</h2>
+          </div>
+          <span id="totalNoticesBadge" class="bg-amber-100 text-amber-900 font-black text-xs px-3 py-1 rounded-full">0건</span>
+        </div>
+
+        <!-- 알림 내역 리스트 (여러 개가 누적되어 모두 직관적으로 표시됨) -->
+        <div id="teacherHistoryContainer" class="flex-1 flex flex-col gap-3.5 max-h-[620px] overflow-y-auto pr-1.5 custom-scrollbar">
+          <div id="teacherHistoryEmpty" class="text-center py-20 text-slate-400 font-bold">
+            <i class="fa-regular fa-paper-plane text-4xl mb-3 text-slate-300"></i>
+            <p>아직 발송된 공지가 없습니다. 왼쪽에서 새 공지를 발송해보세요.</p>
+          </div>
+          <!-- JS 동적 생성 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================= -->
+    <!-- [VIEW 2] 도우미 학생 태블릿 수신 화면 (6반, 8반, 10반 탭 및 다중 카드) -->
+    <!-- ================================================================= -->
+    <section id="studentView" class="hidden flex-1 flex flex-col gap-4">
+      
+      <!-- 6반 / 8반 / 10반 탭 내비게이션 바 -->
+      <div class="bg-amber-500/25 p-2 rounded-2xl flex flex-wrap items-center justify-between gap-2 border border-amber-300/40">
+        <div class="flex gap-2">
+          <button onclick="changeStudentClassTab('all')" id="tabBtn-all" class="px-5 py-2.5 rounded-xl font-black text-sm md:text-base transition bg-slate-900 text-white shadow-md">
+            전체 알림 <span id="badgeClassAll" class="ml-1 bg-amber-400 text-slate-900 text-xs px-2 py-0.5 rounded-full font-black">0</span>
+          </button>
+          <button onclick="changeStudentClassTab('6')" id="tabBtn-6" class="px-5 py-2.5 rounded-xl font-black text-sm md:text-base transition bg-white/80 hover:bg-white text-slate-800 shadow-sm">
+            🧪 6반 <span id="badgeClass6" class="ml-1 bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-black hidden">0</span>
+          </button>
+          <button onclick="changeStudentClassTab('8')" id="tabBtn-8" class="px-5 py-2.5 rounded-xl font-black text-sm md:text-base transition bg-white/80 hover:bg-white text-slate-800 shadow-sm">
+            🔬 8반 <span id="badgeClass8" class="ml-1 bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-black hidden">0</span>
+          </button>
+          <button onclick="changeStudentClassTab('10')" id="tabBtn-10" class="px-5 py-2.5 rounded-xl font-black text-sm md:text-base transition bg-white/80 hover:bg-white text-slate-800 shadow-sm">
+            🪐 10반 <span id="badgeClass10" class="ml-1 bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-black hidden">0</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs font-semibold px-2 text-amber-950">
+          <i class="fa-solid fa-circle-exclamation text-amber-800"></i>
+          <span>선생님이 보내신 모든 알림이 아래에 차례대로 누적됩니다.</span>
+        </div>
+      </div>
+
+      <!-- 학생 카드 리스트 (하나만 뜨지 않고 전부 누적되어 노출) -->
+      <div id="studentCardsContainer" class="flex flex-col gap-4">
+        <!-- 빈 상태 메시지 -->
+        <div id="studentEmptyNotice" class="hidden bg-white/95 rounded-3xl p-16 text-center shadow-lg border border-amber-200 my-auto">
+          <div class="w-20 h-20 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
+            <i class="fa-regular fa-bell-slash"></i>
+          </div>
+          <h3 class="text-xl font-black text-slate-800">도착한 알림이 없습니다</h3>
+          <p class="text-sm text-slate-500 mt-1">선생님께서 공지를 보내시면 즉시 화면에 크게 뜨며 알림음이 울립니다.</p>
+        </div>
+        <!-- 실제 카드 렌더링 영역 -->
+        <div id="studentCardsList" class="flex flex-col gap-5"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================================================================= -->
+  <!-- [대형 긴급 팝업 모달] 새 알림 시 내용 전체가 크게 보이고 소리 무한 지속 -->
+  <!-- ================================================================= -->
+  <div id="urgentPopupModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl border-4 border-amber-400 alarm-ring flex flex-col gap-4">
+      
+      <!-- 상단 메타 정보 -->
+      <div class="flex items-center justify-between border-b pb-3 border-slate-100">
+        <div class="flex items-center gap-2">
+          <span id="popupBadgeType" class="bg-amber-400 text-slate-900 font-black text-xs md:text-sm px-3.5 py-1 rounded-full">일반 알림</span>
+          <span id="popupBadgeClass" class="bg-slate-900 text-white font-black text-xs md:text-sm px-3.5 py-1 rounded-full">🧪 6반 도우미</span>
+          <span id="popupTimeText" class="text-xs font-bold text-slate-400">오후 01:23</span>
+        </div>
+        <div class="flex items-center gap-1.5 text-rose-600 font-black text-xs animate-pulse">
+          <i class="fa-solid fa-volume-high text-sm"></i>
+          <span>확인할 때까지 소리가 울립니다!</span>
+        </div>
+      </div>
+
+      <!-- 제목 및 학생 이름 -->
+      <h2 id="popupTitleText" class="text-3xl md:text-4xl font-black text-slate-950 tracking-tight">호연</h2>
+
+      <!-- 공지 상세 전달 내용 (크고 뚜렷하게 노출) -->
+      <div class="bg-amber-50/80 border-2 border-amber-300 rounded-2xl p-5 md:p-6 text-slate-900 text-lg md:text-2xl font-bold leading-relaxed shadow-inner">
+        <p id="popupContentText">공지 본문이 이곳에 표시됩니다.</p>
+      </div>
+
+      <!-- 팝업 내 빠른 답장 & 확인 버튼 -->
+      <div class="pt-2 flex flex-col gap-3">
+        <div class="text-xs font-extrabold text-slate-500">
+          <i class="fa-solid fa-reply text-amber-500 mr-1"></i> 즉시 답장 버튼을 누르면 소리가 멈추고 선생님 화면에 실시간 전달됩니다:
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <button onclick="handleQuickReplyFromPopup('🏃 바로 이동해요')" class="p-3 rounded-xl border-2 border-slate-200 hover:border-amber-400 bg-white font-black text-slate-800 text-sm hover:bg-amber-50 transition shadow-sm active:scale-95">
+            🏃 바로 이동해요
+          </button>
+          <button onclick="handleQuickReplyFromPopup('⭕ 준비 완료!')" class="p-3 rounded-xl border-2 border-slate-200 hover:border-amber-400 bg-white font-black text-slate-800 text-sm hover:bg-amber-50 transition shadow-sm active:scale-95">
+            ⭕ 준비 완료!
+          </button>
+          <button onclick="handleQuickReplyFromPopup('❓ 질문 있어요')" class="p-3 rounded-xl border-2 border-slate-200 hover:border-amber-400 bg-white font-black text-slate-800 text-sm hover:bg-amber-50 transition shadow-sm active:scale-95">
+            ❓ 질문 있어요
+          </button>
+          <button onclick="handleQuickReplyFromPopup('🆘 도움 필요해요')" class="p-3 rounded-xl border-2 border-rose-200 hover:border-rose-400 bg-rose-50 text-rose-700 font-black text-sm transition shadow-sm active:scale-95">
+            🆘 도움 필요해요
+          </button>
+        </div>
+
+        <!-- 대형 확인 완료 버튼 -->
+        <button onclick="dismissPopupAndStopSound()" class="w-full mt-2 py-4 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white rounded-2xl font-black text-xl shadow-lg transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-check-circle text-2xl"></i>
+          알림 확인 완료 (소리 멈춤)
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 토스트 안내창 -->
+  <div id="toastMessage" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white font-bold text-sm px-6 py-3 rounded-2xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none z-50"></div>
+
+  <!-- 파이어베이스 모듈 스크립트 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      onSnapshot, 
+      query, 
+      orderBy, 
+      updateDoc, 
+      deleteDoc, 
+      doc, 
+      serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+    /* ==========================================
+     * 1. Firebase 설정 (선생님께서 전달해주신 Config)
+     * ========================================== */
+    const firebaseConfig = {
+      apiKey: "AIzaSyCgAvzXn5V_MA1jqEJuvREI4caqBlv35U4",
+      authDomain: "jari-5c613.firebaseapp.com",
+      projectId: "jari-5c613",
+      storageBucket: "jari-5c613.firebasestorage.app",
+      messagingSenderId: "632470920233",
+      appId: "1:632470920233:web:9b0e50653420fdd903d038",
+      measurementId: "G-ZG1CGG977P"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const NOTICES_COLLECTION = "science_notices";
+
+    /* ==========================================
+     * 2. 오디오 알람 엔진 (Web Audio API)
+     * ========================================== */
+    let audioCtx = null;
+    let alarmTimer = null;
+    let isAlarmRunning = false;
+    let isVolumeBoosted = true; // 기본 200% 증폭 모드
+    let currentPopupDocId = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // 맑고 명확한 학교 차임벨 톤 발생
+    function playChimeNote(freq, type = 'triangle', duration = 0.28, delay = 0) {
+      const ctx = getAudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      const baseVolume = isVolumeBoosted ? 0.7 : 0.35;
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(baseVolume, ctx.currentTime + delay + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + duration);
+    }
+
+    // 알림음 루프 시작 (확인할 때까지 반복)
+    function startAlarmSound() {
+      if (isAlarmRunning) return;
+      isAlarmRunning = true;
+      getAudioContext();
+
+      const playPattern = () => {
+        // [솔 - 도 - 미 - 솔] 상승 차임벨
+        playChimeNote(783.99, 'triangle', 0.28, 0.0);
+        playChimeNote(1046.50, 'triangle', 0.28, 0.22);
+        playChimeNote(1318.51, 'triangle', 0.32, 0.44);
+        playChimeNote(1567.98, 'sine', 0.55, 0.68);
+      };
+
+      playPattern();
+      alarmTimer = setInterval(() => {
+        if (!isAlarmRunning) return;
+        playPattern();
+      }, 1600);
+    }
+
+    function stopAlarmSound() {
+      isAlarmRunning = false;
+      if (alarmTimer) {
+        clearInterval(alarmTimer);
+        alarmTimer = null;
+      }
+    }
+
+    // 글로벌 오디오 제어 함수
+    window.initAndUnlockAudio = () => {
+      getAudioContext();
+      playChimeNote(1046.50, 'sine', 0.2, 0);
+      const btn = document.getElementById('audioInitBtn');
+      btn.className = "flex items-center gap-1.5 bg-emerald-600 text-white px-3 py-2 rounded-xl transition shadow-sm font-bold";
+      document.getElementById('audioInitText').innerText = "알림음 활성 상태";
+      showToast("소리 시스템이 활성화되었습니다.");
+    };
+
+    window.toggleVolumeBoost = () => {
+      isVolumeBoosted = !isVolumeBoosted;
+      const btn = document.getElementById('volumeToggleBtn');
+      const text = document.getElementById('volumeToggleText');
+      if (isVolumeBoosted) {
+        text.innerText = "200% 증폭";
+        btn.classList.add('bg-amber-600');
+      } else {
+        text.innerText = "100% 보통";
+        btn.classList.remove('bg-amber-600');
+      }
+      playChimeNote(880, 'sine', 0.15, 0);
+    };
+
+    /* ==========================================
+     * 3. 상태 관리 변수
+     * ========================================== */
+    let currentActiveView = 'teacher'; // 현재 화면 모드 ('teacher' 또는 'student')
+    let noticesList = [];
+    let currentStudentClassFilter = 'all'; // 'all', '6', '8', '10'
+    let selectedNoticeType = '일반 알림';
+    let initialLoadComplete = false;
+
+    /* ==========================================
+     * 4. Firebase 실시간 리스너 (onSnapshot)
+     * ========================================== */
+    const q = query(collection(db, NOTICES_COLLECTION), orderBy("createdAt", "desc"));
+
+    onSnapshot(q, (snapshot) => {
+      const updated = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        data.id = docSnap.id;
+        updated.push(data);
+      });
+
+      // 새로 도착한 변경사항 처리
+      if (initialLoadComplete) {
+        snapshot.docChanges().forEach((change) => {
+          const itemData = change.doc.data();
+          itemData.id = change.doc.id;
+
+          if (change.type === "added") {
+            // [중요] 선생님 모드일 때는 대형 팝업과 사이렌을 완전히 무시하여 연속 작성 가능!
+            if (currentActiveView === 'student' && itemData.status === 'unread') {
+              // 학생 기기가 특정 반(예: 6반 전용)으로 설정되어 있다면 해당 반 알림만 팝업
+              if (currentStudentClassFilter === 'all' || currentStudentClassFilter === itemData.classId) {
+                triggerUrgentPopup(itemData);
+              }
+            }
+          }
+
+          // 학생이 답장을 보냈을 때 선생님 화면에만 부드러운 안내 토스트 노출
+          if (change.type === "modified" && itemData.status === 'replied' && currentActiveView === 'teacher') {
+            showToast(`💬 [${itemData.classId}반] 답장 도착: "${itemData.reply}"`);
+            playSoftBeep(); // 부드러운 단일 비프음
+          }
+        });
+      } else {
+        // 첫 로딩 시 학생 모드이고 미확인 건이 있을 때만 팝업
+        if (currentActiveView === 'student') {
+          const firstUnread = updated.find(item => item.status === 'unread' && 
+            (currentStudentClassFilter === 'all' || currentStudentClassFilter === item.classId));
+          if (firstUnread) {
+            triggerUrgentPopup(firstUnread);
+          }
+        }
+        initialLoadComplete = true;
+      }
+
+      noticesList = updated;
+      renderTeacherHistory();
+      renderStudentCards();
+      updateClassBadges();
+    }, (error) => {
+      console.error("Firestore 리스너 에러:", error);
+    });
+
+    /* ==========================================
+     * 5. 긴급 팝업 모달 제어
+     * ========================================== */
+    function triggerUrgentPopup(item) {
+      // 선생님 모드에서는 어떤 상황에서도 대형 팝업과 경보음을 띄우지 않음
+      if (currentActiveView === 'teacher') return;
+
+      currentPopupDocId = item.id;
+
+      document.getElementById('popupBadgeType').innerText = item.type || '일반 알림';
+      document.getElementById('popupBadgeClass').innerText = `🧪 ${item.classId}반 도우미`;
+      document.getElementById('popupTimeText').innerText = item.timeStr || '방금 전';
+      document.getElementById('popupTitleText').innerText = item.title || `${item.classId}반 과학도우미`;
+      document.getElementById('popupContentText').innerText = item.content || '';
+
+      const modal = document.getElementById('urgentPopupModal');
+      modal.classList.remove('hidden');
+
+      // 학생이 확인할 때까지 차임벨 무한 반복 울림
+      startAlarmSound();
+    }
+    // 학생 답장 수신 시 선생님을 위한 부드러운 알림음
+    function playSoftBeep() {
+      try {
+        const ctx = getAudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } catch (e) {}
+    }
+
+    /* ==========================================
+     * 9. 뷰 모드 전환 및 유틸리티
+     * ========================================== */
+    window.switchView = (mode) => {
+      currentActiveView = mode;
+      const tView = document.getElementById('teacherView');
+      const sView = document.getElementById('studentView');
+      const tBtn = document.getElementById('tabNavTeacher');
+      const sBtn = document.getElementById('tabNavStudent');
+
+      if (mode === 'teacher') {
+        // 선생님 모드로 전환 시 혹시 울리던 경보음이나 팝업 강제 종료
+        stopAlarmSound();
+        document.getElementById('urgentPopupModal').classList.add('hidden');
+
+        tView.classList.remove('hidden');
+        sView.classList.add('hidden');
+        tBtn.className = 'px-3.5 py-1.5 rounded-xl bg-white text-slate-900 font-extrabold shadow transition flex items-center gap-1.5';
+        sBtn.className = 'px-3.5 py-1.5 rounded-xl text-slate-800 hover:text-white font-extrabold transition flex items-center gap-1.5';
+      } else {
+        tView.classList.add('hidden');
+        sView.classList.remove('hidden');
+        sBtn.className = 'px-3.5 py-1.5 rounded-xl bg-white text-slate-900 font-extrabold shadow transition flex items-center gap-1.5';
+        tBtn.className = 'px-3.5 py-1.5 rounded-xl text-slate-800 hover:text-white font-extrabold transition flex items-center gap-1.5';
+        getAudioContext();
+
+        // 학생 화면으로 들어왔을 때 미확인 알림이 있으면 즉시 팝업
+        const unread = noticesList.find(n => n.status === 'unread' && 
+          (currentStudentClassFilter === 'all' || currentStudentClassFilter === n.classId));
+        if (unread) {
+          triggerUrgentPopup(unread);
+        }
+      }
+    };
+
+    window.handleQuickReplyFromPopup = async (replyText) => {
+      stopAlarmSound();
+      document.getElementById('urgentPopupModal').classList.add('hidden');
+
+      if (currentPopupDocId) {
+        try {
+          const docRef = doc(db, NOTICES_COLLECTION, currentPopupDocId);
+          await updateDoc(docRef, {
+            status: 'replied',
+            reply: replyText,
+            repliedAt: formatTimeString(new Date())
+          });
+          showToast(`선생님께 "${replyText}" 답장을 전송했습니다.`);
+        } catch (err) {
+          console.error("답장 전송 오류:", err);
+        }
+      }
+    };
+
+    /* ==========================================
+     * 6. 선생님 알림 전송 로직
+     * ========================================== */
+    window.selectNoticeType = (typeName) => {
+      selectedNoticeType = typeName;
+      const types = [
+        { name: '일반 알림', id: 'typeBtn-general', activeClass: 'border-amber-500 bg-amber-50 text-slate-900 shadow-sm' },
+        { name: '긴급 사항', id: 'typeBtn-urgent', activeClass: 'border-rose-500 bg-rose-50 text-rose-900 shadow-sm' },
+        { name: '준비물', id: 'typeBtn-supplies', activeClass: 'border-amber-600 bg-amber-100 text-amber-950 shadow-sm' }
+      ];
+
+      types.forEach(t => {
+        const btn = document.getElementById(t.id);
+        if (t.name === typeName) {
+          btn.className = `py-2.5 px-3 rounded-2xl border-2 font-black text-xs md:text-sm flex items-center justify-center gap-1.5 transition ${t.activeClass}`;
+        } else {
+          btn.className = 'py-2.5 px-3 rounded-2xl border-2 font-black text-xs md:text-sm flex items-center justify-center gap-1.5 transition border-slate-200 text-slate-500 hover:border-slate-300';
+        }
+      });
+    };
+
+    window.applyTemplate = (tplKey) => {
+      const titleInput = document.getElementById('inputNoticeTitle');
+      const contentInput = document.getElementById('inputNoticeContent');
+
+      if (tplKey === 'scienceLab') {
+        window.selectNoticeType('긴급 사항');
+        titleInput.value = '과학실 이동 안내';
+        contentInput.value = '다음 시간 수업 시작 5분 전까지 1과학실로 이동해주세요. 모둠별로 실험복 착용 후 착석 바랍니다.';
+      } else if (tplKey === 'supplies') {
+        window.selectNoticeType('준비물');
+        titleInput.value = '실험 준비물 수령';
+        contentInput.value = '각 반 과학도우미는 쉬는 시간에 1과학실 앞 준비대에서 비커와 시험관 키트를 수령해가세요.';
+      } else if (tplKey === 'blackboard') {
+        window.selectNoticeType('일반 알림');
+        titleInput.value = '칠판 기록 부탁드려요';
+        contentInput.value = "금요일 결석생 칠판에 적어주시고 해당 학생들에게 종례 때 핸드폰 미리 켜서 선생님께 보여주고 가야한다고 전해주세요. 칠판에는 '금요일 결석생 선호도 조사 실시' 이것만 적어주세요";
+      } else if (tplKey === 'quiet') {
+        window.selectNoticeType('일반 알림');
+        titleInput.value = '자습 안내';
+        contentInput.value = '과학 탐구 보고서 미제출자는 종례 전까지 교무실 앞 제출함에 넣어주세요. 조용히 자습 부탁드립니다.';
+      }
+    };
+
+    window.handleTeacherSubmit = async (e) => {
+      e.preventDefault();
+      getAudioContext();
+
+      const checkboxes = document.querySelectorAll('input[name="targetClasses"]:checked');
+      if (checkboxes.length === 0) {
+        showToast('최소 하나 이상의 반(6반, 8반, 10반)을 선택해주세요.');
+        return;
+      }
+
+      const selectedClasses = Array.from(checkboxes).map(cb => cb.value);
+      const title = document.getElementById('inputNoticeTitle').value.trim();
+      const content = document.getElementById('inputNoticeContent').value.trim();
+      const currentTimeStr = formatTimeString(new Date());
+
+      try {
+        // 선택된 모든 반에 각각 개별 문서를 생성하여 동시에 발송
+        for (const cls of selectedClasses) {
+          await addDoc(collection(db, NOTICES_COLLECTION), {
+            classId: cls,
+            title: title || `${cls}반 도우미`,
+            content: content,
+            type: selectedNoticeType,
+            status: 'unread', // unread -> confirmed -> replied
+            reply: '',
+            timeStr: currentTimeStr,
+            createdAt: serverTimestamp()
+          });
+        }
+
+        showToast(`${selectedClasses.join(', ')}반으로 알림이 전송되었습니다!`);
+      } catch (err) {
+        console.error("전송 오류:", err);
+        showToast("전송에 실패했습니다. Firebase 콘솔 규칙을 확인하세요.");
+      }
+    };
+
+    // 알림 삭제
+    window.deleteNoticeItem = async (docId) => {
+      try {
+        await deleteDoc(doc(db, NOTICES_COLLECTION, docId));
+        showToast("알림이 삭제되었습니다.");
+      } catch (err) {
+        console.error("삭제 실패:", err);
+      }
+    };
+
+    /* ==========================================
+     * 7. 선생님 전송 내역 렌더링 (우측 패널)
+     * ========================================== */
+    function renderTeacherHistory() {
+      const container = document.getElementById('teacherHistoryContainer');
+      const badge = document.getElementById('totalNoticesBadge');
+      badge.innerText = `${noticesList.length}건`;
+
+      if (noticesList.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-20 text-slate-400 font-bold">
+            <i class="fa-regular fa-paper-plane text-4xl mb-3 text-slate-300"></i>
+            <p>아직 발송된 공지가 없습니다. 왼쪽에서 새 공지를 발송해보세요.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = noticesList.map(item => {
+        let statusBadge = '';
+        if (item.status === 'replied') {
+          statusBadge = `<span class="px-2.5 py-1 rounded-xl text-xs font-black bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                          <i class="fa-solid fa-circle-check"></i> 답장완료 (${item.reply})
+                         </span>`;
+        } else if (item.status === 'confirmed') {
+          statusBadge = `<span class="px-2.5 py-1 rounded-xl text-xs font-black bg-blue-100 text-blue-700 flex items-center gap-1">
+                          <i class="fa-solid fa-check"></i> 확인완료
+                         </span>`;
+        } else {
+          statusBadge = `<span class="px-2.5 py-1 rounded-xl text-xs font-black bg-amber-100 text-amber-800 flex items-center gap-1 border border-amber-300">
+                          <i class="fa-solid fa-hourglass-half"></i> 확인 대기 중
+                         </span>`;
+        }
+
+        return `
+          <div class="p-4 rounded-2xl border border-amber-300/80 bg-amber-50/20 hover:bg-amber-50/40 transition flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 rounded-lg text-xs font-black bg-slate-900 text-white">${item.classId}반</span>
+                <span class="px-2 py-0.5 rounded-lg text-xs font-black bg-white border border-amber-300 text-amber-900">${escapeHtml(item.type || '일반 알림')}</span>
+                <span class="text-xs font-semibold text-slate-400">${item.timeStr || ''}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                ${statusBadge}
+                <button onclick="deleteNoticeItem('${item.id}')" title="삭제" class="text-slate-300 hover:text-rose-500 transition p-1 text-sm">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+
+            <h3 class="text-lg font-black text-slate-900">${escapeHtml(item.title || '')}</h3>
+            <p class="text-xs sm:text-sm font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">${escapeHtml(item.content || '')}</p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* ==========================================
+     * 8. 학생 태블릿 화면 렌더링 (다중 카드 누적 & 6/8/10반 탭)
+     * ========================================== */
+    window.changeStudentClassTab = (targetClass) => {
+      currentStudentClassFilter = targetClass;
+
+      ['all', '6', '8', '10'].forEach(c => {
+        const btn = document.getElementById(`tabBtn-${c}`);
+        if (c === targetClass) {
+          btn.className = 'px-5 py-2.5 rounded-xl font-black text-sm md:text-base transition bg-slate-900 text-white shadow-md';
+        } else {
+          btn.className = 'px-5 py-2.5 rounded-xl font-black text-sm md:text-base transition bg-white/80 hover:bg-white text-slate-800 shadow-sm';
+        }
+      });
+
+      renderStudentCards();
+    };
+
+    function updateClassBadges() {
+      const counts = {
+        all: noticesList.filter(n => n.status === 'unread').length,
+        '6': noticesList.filter(n => n.classId === '6' && n.status === 'unread').length,
+        '8': noticesList.filter(n => n.classId === '8' && n.status === 'unread').length,
+        '10': noticesList.filter(n => n.classId === '10' && n.status === 'unread').length,
+      };
+
+      document.getElementById('badgeClassAll').innerText = counts.all;
+      ['6', '8', '10'].forEach(c => {
+        const badge = document.getElementById(`badgeClass${c}`);
+        if (counts[c] > 0) {
+          badge.classList.remove('hidden');
+          badge.innerText = counts[c];
+        } else {
+          badge.classList.add('hidden');
+        }
+      });
+    }
+
+    function renderStudentCards() {
+      const container = document.getElementById('studentCardsList');
+      const emptyBox = document.getElementById('studentEmptyNotice');
+
+      const filtered = noticesList.filter(n => {
+        if (currentStudentClassFilter === 'all') return true;
+        return n.classId === currentStudentClassFilter;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '';
+        emptyBox.classList.remove('hidden');
+        return;
+      }
+
+      emptyBox.classList.add('hidden');
+
+      // 여러 알림이 아래로 순서대로 전부 쌓여 표시됨
+      container.innerHTML = filtered.map(item => {
+        const isUrgent = (item.type || '').includes('긴급');
+        const isReplied = item.status === 'replied';
+
+        return `
+          <div class="bg-white rounded-3xl p-5 md:p-7 shadow-xl border-4 ${item.status === 'unread' ? 'border-amber-400 alarm-ring' : 'border-amber-200'} transition flex flex-col gap-4">
+            
+            <!-- 상단 바 -->
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div class="flex items-center gap-2">
+                <span class="px-3 py-1 rounded-xl text-xs font-black ${isUrgent ? 'bg-rose-500 text-white' : 'bg-slate-900 text-white'}">
+                  ${item.classId}반 도우미
+                </span>
+                <span class="px-3 py-1 rounded-xl text-xs font-black bg-amber-100 text-amber-900">
+                  ${escapeHtml(item.type || '일반 알림')}
+                </span>
+                <span class="text-xs font-bold text-slate-400">
+                  <i class="fa-regular fa-clock mr-1"></i>${item.timeStr || ''}
+                </span>
+              </div>
+              <div>
+                ${item.status === 'unread' 
+                  ? `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-700 animate-pulse border border-rose-300">
+                       <i class="fa-solid fa-bell"></i> 확인 대기 중 (알림 발생)
+                     </span>`
+                  : `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                       <i class="fa-solid fa-check"></i> ${isReplied ? '답장 전송 완료' : '확인 완료'}
+                     </span>`}
+              </div>
+            </div>
+
+            <!-- 제목 및 호칭 -->
+            <h2 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              ${escapeHtml(item.title || `${item.classId}반 과학도우미`)}
+            </h2>
+
+            <!-- 본문 내용 (크고 선명한 폰트) -->
+            <div class="p-5 rounded-2xl bg-amber-50/50 border border-amber-200 text-slate-900 text-lg sm:text-2xl font-bold leading-relaxed whitespace-pre-wrap">
+              ${escapeHtml(item.content || '')}
+            </div>
+
+            <!-- 답장 섹션 (이미지 디자인 반영) -->
+            <div class="mt-2 pt-3 border-t border-slate-100 flex flex-col gap-3">
+              <div class="flex items-center justify-between text-xs font-black text-slate-600">
+                <span class="flex items-center gap-1.5 text-amber-700">
+                  <i class="fa-solid fa-reply"></i> 선생님께 즉시 답장 보내기 (클릭 선택 또는 직접 작성)
+                </span>
+                ${item.reply ? `<span class="text-emerald-600 font-black">전송된 답장: "${escapeHtml(item.reply)}"</span>` : ''}
+              </div>
+
+              <!-- 빠른 답장 버튼들 -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button onclick="studentSendReply('${item.id}', '🏃 바로 이동해요')" class="py-3 px-2 rounded-xl border border-slate-200 hover:border-amber-400 bg-white font-extrabold text-xs sm:text-sm text-slate-800 hover:bg-amber-50 transition shadow-sm active:scale-95">
+                  🏃 바로 이동해요
+                </button>
+                <button onclick="studentSendReply('${item.id}', '⭕ 준비 완료!')" class="py-3 px-2 rounded-xl border border-slate-200 hover:border-amber-400 bg-white font-extrabold text-xs sm:text-sm text-slate-800 hover:bg-amber-50 transition shadow-sm active:scale-95">
+                  ⭕ 준비 완료!
+                </button>
+                <button onclick="studentSendReply('${item.id}', '❓ 질문 있어요')" class="py-3 px-2 rounded-xl border border-slate-200 hover:border-amber-400 bg-white font-extrabold text-xs sm:text-sm text-slate-800 hover:bg-amber-50 transition shadow-sm active:scale-95">
+                  ❓ 질문 있어요
+                </button>
+                <button onclick="studentSendReply('${item.id}', '🆘 도움 필요해요')" class="py-3 px-2 rounded-xl border border-rose-200 hover:border-rose-400 bg-rose-50 text-rose-700 font-extrabold text-xs sm:text-sm transition shadow-sm active:scale-95">
+                  🆘 도움 필요해요
+                </button>
+              </div>
+
+              <!-- 직접 입력 답장 필드 -->
+              <div class="flex gap-2">
+                <input type="text" id="customInput-${item.id}" placeholder="원하는 답장 문구를 직접 적거나 위 버튼을 누르세요..."
+                       value="${item.reply || ''}"
+                       class="flex-1 px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500 font-bold text-sm bg-slate-50">
+                <button onclick="studentSubmitCustomReply('${item.id}')" class="px-6 py-3 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-black text-sm rounded-xl shadow transition">
+                  전송
+                </button>
+              </div>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 학생 답장 처리 함수
+    window.studentSendReply = async (docId, text) => {
+      stopAlarmSound();
+      try {
+        const docRef = doc(db, NOTICES_COLLECTION, docId);
+        await updateDoc(docRef, {
+          status: 'replied',
+          reply: text,
+          repliedAt: formatTimeString(new Date())
+        });
+        showToast(`선생님께 "${text}" 답장을 보냈습니다.`);
+      } catch (err) {
+        console.error("답장 에러:", err);
+      }
+    };
+
+    window.studentSubmitCustomReply = (docId) => {
+      const input = document.getElementById(`customInput-${docId}`);
+      if (input && input.value.trim() !== '') {
+        studentSendReply(docId, input.value.trim());
+      } else {
+        studentSendReply(docId, "확인했습니다");
+      }
+    };
+
+    /* ==========================================
+     * 9. 뷰 모드 전환 및 유틸리티
+     * ========================================== */
+    window.switchView = (mode) => {
+      const tView = document.getElementById('teacherView');
+      const sView = document.getElementById('studentView');
+      const tBtn = document.getElementById('tabNavTeacher');
+      const sBtn = document.getElementById('tabNavStudent');
+
+      if (mode === 'teacher') {
+        tView.classList.remove('hidden');
+        sView.classList.add('hidden');
+        tBtn.className = 'px-3.5 py-1.5 rounded-xl bg-white text-slate-900 font-extrabold shadow transition flex items-center gap-1.5';
+        sBtn.className = 'px-3.5 py-1.5 rounded-xl text-slate-800 hover:text-white font-extrabold transition flex items-center gap-1.5';
+      } else {
+        tView.classList.add('hidden');
+        sView.classList.remove('hidden');
+        sBtn.className = 'px-3.5 py-1.5 rounded-xl bg-white text-slate-900 font-extrabold shadow transition flex items-center gap-1.5';
+        tBtn.className = 'px-3.5 py-1.5 rounded-xl text-slate-800 hover:text-white font-extrabold transition flex items-center gap-1.5';
+        getAudioContext();
+      }
+    };
+
+    window.toggleFullScreen = () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    };
+
+    function formatTimeString(date) {
+      const hours = date.getHours();
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? '오후' : '오전';
+      const h12 = String(hours % 12 || 12).padStart(2, '0');
+      return `${ampm} ${h12}:${minutes}`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      }[m]));
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastMessage');
+      toast.innerText = msg;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+
+    // 초기 화면 터치 시 브라우저 오디오 권한 자동 획득
+    document.addEventListener('click', () => {
+      getAudioContext();
+    }, { once: true });
+  </script>
+</body>
+</html>
